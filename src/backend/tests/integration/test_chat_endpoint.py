@@ -107,6 +107,33 @@ def test_model_receives_spanish_system_instruction(
     assert "español" in first_message.content.lower()
 
 
+def test_model_receives_previous_turns_in_order_before_current_question(
+    client: TestClient, fake_model: RecordingFakeChatModel
+) -> None:
+    history = [
+        {"role": "user", "content": "¿Qué es la hipertensión?"},
+        {"role": "assistant", "content": "Es la presión arterial alta."},
+    ]
+
+    client.post(
+        "/chat/stream",
+        json={"question": "¿Y cómo se previene?", "history": history},
+    )
+
+    messages = fake_model.received[0]
+    assert isinstance(messages[0], SystemMessage)
+    assert [type(message) for message in messages[1:]] == [
+        HumanMessage,
+        AIMessage,
+        HumanMessage,
+    ]
+    assert [message.content for message in messages[1:]] == [
+        "¿Qué es la hipertensión?",
+        "Es la presión arterial alta.",
+        "¿Y cómo se previene?",
+    ]
+
+
 @pytest.mark.parametrize("question", ["", "x" * 2001])
 def test_chat_rejects_invalid_question(client: TestClient, question: str) -> None:
     response = client.post("/chat", json={"question": question})

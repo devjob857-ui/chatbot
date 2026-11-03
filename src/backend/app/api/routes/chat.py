@@ -33,7 +33,8 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
 
     async def event_source() -> AsyncIterator[str]:
         try:
-            async for chunk in stream_answer(request.question):
+            history = [(turn.role, turn.content) for turn in request.history or []]
+            async for chunk in stream_answer(request.question, history):
                 yield _sse("token", {"text": chunk})
             yield _sse("done", {})
         except Exception:
