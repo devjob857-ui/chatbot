@@ -134,7 +134,54 @@ def test_model_receives_previous_turns_in_order_before_current_question(
     ]
 
 
+def test_full_response_endpoint_also_uses_history(
+    client: TestClient, fake_model: RecordingFakeChatModel
+) -> None:
+    history = [
+        {"role": "user", "content": "¿Qué es la hipertensión?"},
+        {"role": "assistant", "content": "Es la presión arterial alta."},
+    ]
+
+    response = client.post(
+        "/chat",
+        json={"question": "¿Y cómo se previene?", "history": history},
+    )
+
+    assert response.status_code == 200
+    messages = fake_model.received[0]
+    assert [message.content for message in messages[1:]] == [
+        "¿Qué es la hipertensión?",
+        "Es la presión arterial alta.",
+        "¿Y cómo se previene?",
+    ]
+
+
 @pytest.mark.parametrize("question", ["", "x" * 2001])
 def test_chat_rejects_invalid_question(client: TestClient, question: str) -> None:
     response = client.post("/chat", json={"question": question})
+    assert response.status_code == 422
+
+
+def test_chat_rejects_history_with_more_than_20_messages(client: TestClient) -> None:
+    history = [
+        {"role": "user" if index % 2 == 0 else "assistant", "content": f"mensaje {index}"}
+        for index in range(21)
+    ]
+
+    response = client.post(
+        "/chat/stream",
+        json={"question": "¿Y ahora?", "history": history},
+    )
+
+    assert response.status_code == 422
+
+
+def test_chat_rejects_history_message_longer_than_question_limit(client: TestClient) -> None:
+    history = [{"role": "user", "content": "x" * 2001}]
+
+    response = client.post(
+        "/chat/stream",
+        json={"question": "¿Y ahora?", "history": history},
+    )
+
     assert response.status_code == 422

@@ -20,7 +20,8 @@ def _sse(event: str, data: dict) -> str:
 @router.post("", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     """Respuesta completa, sin streaming."""
-    parts = [chunk async for chunk in stream_answer(request.question)]
+    history = [(turn.role, turn.content) for turn in request.history or []]
+    parts = [chunk async for chunk in stream_answer(request.question, history)]
     return ChatResponse(answer="".join(parts).strip())
 
 
