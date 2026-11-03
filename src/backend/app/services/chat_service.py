@@ -1,23 +1,21 @@
 """Servicio de chat.
 
-PROVISIONAL: el flujo real (intención → RAG → SQL validado → LLM, ver AGENTS.md
-sección 3) aún no está implementado. Mientras tanto, `stream_answer` emite una
-respuesta fija por palabras para poder probar el transporte SSE y la UI.
-Al implementar el flujo real, sustituir el cuerpo de `stream_answer` y dejar
-la misma firma: el resto de la aplicación no debe cambiar.
+Por ahora responde directamente con el modelo local. El flujo completo
+(intención → RAG → SQL validado → LLM, ver AGENTS.md sección 3) se agregará
+detrás de esta misma firma: el resto de la aplicación no debe cambiar.
 """
 
-import asyncio
 from collections.abc import AsyncIterator
 
-_PLACEHOLDER_ANSWER = (
-    "El asistente aún no está conectado al flujo de RAG, SQL y LLM. "
-    "Esta es una respuesta de prueba del transporte de streaming."
-)
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from app.llm.client import get_chat_model
+from app.prompts.answer import SYSTEM_PROMPT
 
 
 async def stream_answer(question: str) -> AsyncIterator[str]:
-    """Emite la respuesta en fragmentos de texto."""
-    for word in _PLACEHOLDER_ANSWER.split(" "):
-        yield word + " "
-        await asyncio.sleep(0.03)
+    """Emite la respuesta del modelo en fragmentos de texto, a medida que se genera."""
+    model = get_chat_model()
+    messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=question)]
+    async for chunk in model.astream(messages):
+        yield chunk.content

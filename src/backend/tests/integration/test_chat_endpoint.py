@@ -1,13 +1,36 @@
+import itertools
 import json
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from pydantic import Field
 
 from app.main import create_app
 
+FAKE_ANSWER = "Hola, soy el modelo de prueba."
+
+
+class RecordingFakeChatModel(GenericFakeChatModel):
+    """Modelo falso que guarda los mensajes recibidos en cada llamada."""
+
+    received: list[list[BaseMessage]] = Field(default_factory=list)
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        self.received.append(messages)
+        return super()._stream(messages, stop=stop, run_manager=run_manager, **kwargs)
+
 
 @pytest.fixture
-def client() -> TestClient:
+def fake_model() -> RecordingFakeChatModel:
+    return RecordingFakeChatModel(messages=itertools.cycle([AIMessage(content=FAKE_ANSWER)]))
+
+
+@pytest.fixture
+def client(monkeypatch: pytest.MonkeyPatch, fake_model: RecordingFakeChatModel) -> TestClient:
+    # Modelo falso: ninguna prueba depende de que Ollama esté corriendo.
+    monkeypatch.setattr("app.services.chat_service.get_chat_model", lambda: fake_model)
     return TestClient(create_app())
 
 
@@ -37,7 +60,7 @@ def test_root_serves_frontend(client: TestClient) -> None:
     assert "Medicalidad AI" in response.text
 
 
-def test_chat_stream_emits_tokens_then_done(client: TestClient) -> None:
+def test_chat_stream_emits_model_tokens_in_order_then_done(client: TestClient) -> None:
     response = client.post("/chat/stream", json={"question": "hola"})
 
     assert response.status_code == 200
@@ -47,16 +70,41 @@ def test_chat_stream_emits_tokens_then_done(client: TestClient) -> None:
     names = [name for name, _ in events]
     assert names[-1] == "done"
     assert all(name == "token" for name in names[:-1])
-    assert len(names) > 1
+    # Llega en varios fragmentos (streaming), no en un solo bloque.
+    assert names.count("token") > 1
 
     text = "".join(data["text"] for name, data in events if name == "token")
-    assert text.strip()
+    assert text == FAKE_ANSWER
 
 
-def test_chat_full_response(client: TestClient) -> None:
+def test_chat_full_response_returns_model_answer(client: TestClient) -> None:
     response = client.post("/chat", json={"question": "hola"})
     assert response.status_code == 200
-    assert response.json()["answer"].strip()
+    assert response.json()["answer"] == FAKE_ANSWER
+
+
+def test_model_receives_the_user_question(
+    client: TestClient, fake_model: RecordingFakeChatModel
+) -> None:
+    questions = ["¿Qué es Medicalidad?", "¿Qué servicios ofrecen?"]
+
+    for question in questions:
+        client.post("/chat/stream", json={"question": question})
+
+    # Cada llamada al modelo termina con la pregunta del usuario que la originó.
+    last_messages = [messages[-1] for messages in fake_model.received]
+    assert all(isinstance(message, HumanMessage) for message in last_messages)
+    assert [message.content for message in last_messages] == questions
+
+
+def test_model_receives_spanish_system_instruction(
+    client: TestClient, fake_model: RecordingFakeChatModel
+) -> None:
+    client.post("/chat/stream", json={"question": "hola"})
+
+    first_message = fake_model.received[0][0]
+    assert isinstance(first_message, SystemMessage)
+    assert "español" in first_message.content.lower()
 
 
 @pytest.mark.parametrize("question", ["", "x" * 2001])
