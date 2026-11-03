@@ -91,6 +91,18 @@ medicalidad-ai/
 ├── Dockerfile
 ├── docker-compose.yml
 │
+├── src/
+│   ├── frontend/             # UI de chat estática (HTML/CSS/JS), servida por FastAPI
+│   │   ├── index.html
+│   │   ├── css/styles.css
+│   │   └── js/ (app.js, api.js)
+│   │
+│   └── backend/              # Backend completo. El árbol de abajo es relativo a esta carpeta
+│       ├── app/              # (paquete FastAPI, ver árbol siguiente)
+│       ├── tests/
+│       └── scripts/
+│
+# Árbol de src/backend/:
 ├── app/
 │   ├── main.py
 │   │
