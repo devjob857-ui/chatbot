@@ -55,23 +55,29 @@ Flujo de una petición:
 ├── requirements.txt          # Dependencias con versiones fijadas
 ├── Dockerfile
 ├── docker-compose.yml
-├── app/
-│   ├── main.py               # Punto de entrada FastAPI
-│   ├── core/                 # Configuración, logging, excepciones
-│   ├── api/                  # Rutas, esquemas y dependencias
-│   ├── services/             # Lógica de negocio (chat, intención, SQL)
-│   ├── rag/                  # Ingesta, chunking, embeddings, retriever, vector store
-│   ├── database/             # Conexión, inspección de esquema, ejecución
-│   ├── llm/                  # Cliente LLM y cadenas LangChain
-│   ├── security/             # Validación de SQL
-│   └── prompts/              # Prompts del sistema
+├── src/
+│   ├── backend/              # API FastAPI, lógica RAG/SQL y pruebas
+│   │   ├── app/
+│   │   │   ├── main.py       # Punto de entrada FastAPI
+│   │   │   ├── core/         # Configuración, logging, excepciones
+│   │   │   ├── api/          # Rutas, esquemas y dependencias
+│   │   │   ├── services/     # Lógica de negocio (chat, intención, SQL)
+│   │   │   ├── rag/          # Ingesta, chunking, embeddings, retriever, vector store
+│   │   │   ├── database/     # Conexión, inspección de esquema, ejecución
+│   │   │   ├── llm/          # Cliente LLM y cadenas LangChain
+│   │   │   ├── security/     # Validación de SQL
+│   │   │   └── prompts/      # Prompts del sistema
+│   │   ├── tests/
+│   │   │   ├── unit/
+│   │   │   └── integration/
+│   │   └── scripts/          # Utilidades (p. ej. ingesta de documentos)
+│   └── frontend/             # UI de chat (HTML/CSS/JS estático, sin build)
+│       ├── index.html
+│       ├── css/styles.css
+│       └── js/               # app.js (interfaz), api.js (cliente SSE)
 ├── data/
 │   ├── documents/            # Documentos fuente para RAG
 │   └── vector_store/         # Persistencia del vector store (no versionada)
-├── tests/
-│   ├── unit/
-│   └── integration/
-├── scripts/                  # Utilidades (p. ej. ingesta de documentos)
 └── docs/
 ```
 
@@ -112,8 +118,11 @@ Flujo de una petición:
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+cd src/backend
 uvicorn app.main:app --reload
 ```
+
+Las pruebas se ejecutan igualmente desde `src/backend`: `pytest`.
 
 ### Docker
 
@@ -126,6 +135,7 @@ docker compose up --build
 Coloca los documentos en `data/documents/` y ejecuta:
 
 ```bash
+cd src/backend
 python scripts/ingest_documents.py
 ```
 
@@ -133,10 +143,29 @@ python scripts/ingest_documents.py
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/chat` | Envía una pregunta y recibe la respuesta |
+| `POST` | `/chat` | Envía una pregunta y recibe la respuesta completa |
+| `POST` | `/chat/stream` | Igual, pero la respuesta llega en streaming (SSE) |
 | `GET` | `/health` | Estado del servicio |
 
 Documentación interactiva (Swagger) en `http://localhost:8000/docs` cuando el servidor está activo.
+
+### Streaming (`/chat/stream`)
+
+Respuesta `text/event-stream`. Cada evento tiene la forma `event: <nombre>` seguida de `data: <JSON>`:
+
+| Evento | Datos | Descripción |
+|---|---|---|
+| `token` | `{"text": "..."}` | Fragmento de la respuesta |
+| `done` | `{}` | Respuesta completa |
+| `error` | `{"message": "..."}` | Fallo durante la generación |
+
+Prueba rápida: `curl -N -X POST localhost:8000/chat/stream -H "Content-Type: application/json" -d '{"question":"hola"}'`
+
+## Interfaz web
+
+La UI de chat se sirve en `http://localhost:8000/` desde la carpeta `src/frontend/`, sin pasos de build. Muestra el historial de la sesión (se pierde al recargar) y las respuestas se muestran en streaming.
+
+Estado actual: el servicio de chat (`app/services/chat_service.py`) es provisional y devuelve una respuesta de prueba hasta implementar el flujo RAG + SQL + LLM.
 
 Ejemplo (esquema tentativo):
 
