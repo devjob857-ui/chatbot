@@ -97,18 +97,47 @@ Flujo de una petición:
    cp .env.example .env
    ```
 
-2. Completa los valores en `.env`. Variables previstas (nombres tentativos, se definirán en `app/core/config.py`):
+2. Ajusta los valores en `.env`. El archivo se lee siempre desde la raíz del proyecto, sin importar desde qué carpeta se ejecute la app.
+
+   Variables disponibles (definidas en `src/backend/app/core/config.py`):
+
+   | Variable | Descripción | Por defecto |
+   |---|---|---|
+   | `OLLAMA_BASE_URL` | URL del servidor Ollama | `http://localhost:11434` |
+   | `LLM_MODEL` | Modelo de chat en Ollama | `llama3.2:3b` |
+   | `CORS_ORIGINS` | Orígenes permitidos por CORS (JSON) | `[]` (sin CORS) |
+
+   Variables previstas (nombres tentativos, aún no implementadas):
 
    | Variable | Descripción |
    |---|---|
    | `LLM_API_KEY` | API Key del modelo de lenguaje principal |
-   | `OLLAMA_BASE_URL` | URL del servidor Ollama |
    | `EMBEDDING_MODEL` | Modelo de embeddings en Ollama |
    | `DB_HOST`, `DB_PORT`, `DB_NAME` | Conexión a MariaDB |
    | `DB_USER`, `DB_PASSWORD` | Credenciales de un usuario **de solo lectura** |
    | `VECTOR_STORE_PATH` | Ruta de persistencia del vector store |
 
 > Nunca subas `.env` al repositorio ni uses credenciales con permisos de escritura.
+
+### Modelo local (Ollama)
+
+El chat responde con un modelo local servido por Ollama.
+
+1. Instala [Ollama](https://ollama.com/download) y verifica que esté corriendo (en Windows y macOS se inicia como aplicación; en Linux, con `ollama serve`):
+
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+2. Descarga el modelo:
+
+   ```bash
+   ollama pull llama3.2:3b
+   ```
+
+3. Comprueba que aparece en la lista con `ollama list`.
+
+Si Ollama corre en otra máquina o usas otro modelo, cambia `OLLAMA_BASE_URL` o `LLM_MODEL` en `.env`. Si Ollama no está disponible, el chat muestra un mensaje de error genérico.
 
 ## Instalación y ejecución
 
@@ -165,7 +194,7 @@ Prueba rápida: `curl -N -X POST localhost:8000/chat/stream -H "Content-Type: ap
 
 La UI de chat se sirve en `http://localhost:8000/` desde la carpeta `src/frontend/`, sin pasos de build. Muestra el historial de la sesión (se pierde al recargar) y las respuestas se muestran en streaming.
 
-Estado actual: el servicio de chat (`app/services/chat_service.py`) es provisional y devuelve una respuesta de prueba hasta implementar el flujo RAG + SQL + LLM.
+Estado actual: el servicio de chat (`app/services/chat_service.py`) responde directamente con el modelo local de Ollama, en español. Todavía no recuerda el contexto de la conversación ni usa RAG o SQL.
 
 Ejemplo (esquema tentativo):
 
@@ -184,12 +213,15 @@ POST /chat
 ## Pruebas
 
 ```bash
+cd src/backend
 pytest
 ```
 
+Las pruebas usan un modelo falso y no necesitan que Ollama esté corriendo.
+
 ## Estado del proyecto
 
-En fase inicial: la estructura de carpetas está creada y los módulos se encuentran como placeholders pendientes de implementación.
+En fase inicial: el chat ya responde con el modelo local (Ollama) y en streaming. El resto de los módulos (intención, RAG, SQL, MariaDB) siguen como placeholders pendientes de implementación.
 
 ## Contribución
 
