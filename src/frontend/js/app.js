@@ -2,6 +2,8 @@
 import { streamChat } from "./api.js";
 
 const MAX_CHARS = 2000;
+/** Mensajes previos que se envían al backend (10 turnos). Debe coincidir con el backend. */
+const MAX_HISTORY_MESSAGES = 20;
 
 const messagesEl = document.getElementById("messages");
 const emptyEl = document.getElementById("empty-state");
@@ -9,7 +11,10 @@ const formEl = document.getElementById("chat-form");
 const inputEl = document.getElementById("question");
 const sendBtn = document.getElementById("send");
 
-/** Historial en memoria. Se pierde al recargar (fuera de alcance de la v1). */
+/**
+ * Historial en memoria, solo con turnos completos (pregunta + respuesta sin error).
+ * Se pierde al recargar (fuera de alcance de la v1).
+ */
 const history = [];
 let busy = false;
 
@@ -45,7 +50,6 @@ async function handleSubmit(event) {
     return;
   }
 
-  history.push({ role: "user", text: question });
   addMessage("user", question);
   inputEl.value = "";
   resizeInput();
@@ -56,6 +60,7 @@ async function handleSubmit(event) {
 
   try {
     await streamChat(question, {
+      history: history.slice(-MAX_HISTORY_MESSAGES),
       onToken(text) {
         answer += text;
         botEl.textContent = answer;
@@ -63,8 +68,11 @@ async function handleSubmit(event) {
       },
     });
     botEl.classList.remove("typing");
-    if (!answer) botEl.textContent = "(Sin respuesta)";
-    history.push({ role: "bot", text: answer });
+    if (answer) {
+      history.push({ role: "user", content: question }, { role: "assistant", content: answer });
+    } else {
+      botEl.textContent = "(Sin respuesta)";
+    }
   } catch (err) {
     botEl.classList.remove("typing");
     botEl.classList.add("error");

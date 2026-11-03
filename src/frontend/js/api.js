@@ -11,17 +11,18 @@ const STREAM_URL = "/chat/stream";
  *   event: error  data: {"message": "..."}
  *
  * @param {string} question
- * @param {{onToken: (text: string) => void, signal?: AbortSignal}} handlers
+ * @param {{history?: {role: "user" | "assistant", content: string}[], onToken: (text: string) => void, signal?: AbortSignal}} options
+ *   `history` son los turnos previos completos, en orden.
  * @returns {Promise<void>} resuelve al recibir "done"; lanza Error en fallo.
  */
-export async function streamChat(question, { onToken, signal } = {}) {
+export async function streamChat(question, { history = [], onToken, signal } = {}) {
   const response = await fetch(STREAM_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
     signal,
   });
 
