@@ -17,6 +17,10 @@ class RecordingFakeChatModel(GenericFakeChatModel):
 
     received: list[list[BaseMessage]] = Field(default_factory=list)
 
+    def bind_tools(self, tools, **kwargs):
+        # El chat siempre enlaza la herramienta de glosa; este modelo no la usa.
+        return self
+
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
         self.received.append(messages)
         return super()._stream(messages, stop=stop, run_manager=run_manager, **kwargs)
