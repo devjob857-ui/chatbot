@@ -1,0 +1,27 @@
+# Dependencias de producción (versiones fijadas).
+
+# API (app/main.py, app/api/)
+fastapi==0.150.0
+uvicorn==0.54.0
+
+# Validación y configuración (app/core/config.py, app/api/schemas/)
+pydantic==2.14.1
+pydantic-settings==2.16.0
+
+# Orquestación LLM y RAG (app/llm/, app/rag/, app/services/)
+langchain-core==1.6.12
+langchain-ollama==1.1.0        # Embeddings y/o LLM local vía Ollama
+langchain-community==0.4.2     # Wrapper de FAISS y cargadores de documentos
+faiss-cpu==1.15.1              # Vector store persistente en data/vector_store/
+
+# Base de datos MariaDB (app/database/)
+sqlalchemy==2.1.5              # Conexión de solo lectura y esquema
+pymysql==1.2.3                 # Driver MariaDB/MySQL para SQLAlchemy
+
+# Pruebas (tests/)
+pytest==9.1.1
+httpx==0.28.1                  # Requerido por TestClient de FastAPI
+
+# Pendiente: el cliente del LLM por API Key (app/llm/client.py) depende del
+# proveedor elegido (p. ej. langchain-openai, langchain-anthropic). No se
+# añade hasta confirmar el proveedor.

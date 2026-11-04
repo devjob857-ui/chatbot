@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Medicalidad AI</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Medicalidad AI</h1>
+      <p>Pregunta sobre el funcionamiento y los procesos del negocio.</p>
+    </header>
+
+    <main id="messages" class="messages" aria-live="polite">
+      <p class="empty" id="empty-state">Escribe tu primera pregunta para comenzar.</p>
+    </main>
+
+    <form id="chat-form" class="composer" autocomplete="off">
+      <textarea id="question" rows="1" maxlength="2000" placeholder="Escribe tu pregunta…" aria-label="Pregunta" required></textarea>
+      <button id="send" type="submit">Enviar</button>
+    </form>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
