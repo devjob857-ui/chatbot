@@ -104,18 +104,32 @@ Flujo de una petición:
    | Variable | Descripción | Por defecto |
    |---|---|---|
    | `OLLAMA_BASE_URL` | URL del servidor Ollama | `http://localhost:11434` |
-   | `LLM_MODEL` | Modelo de chat en Ollama | `llama3.2:3b` |
+   | `LLM_MODEL` | Modelo que conversa con el usuario | `llama3.2:3b` |
+   | `SQL_MODEL` | Modelo que escribe las consultas SQL | `qwen2.5-coder:14b` |
+   | `DB_HOST`, `DB_PORT` | Servidor MariaDB/MySQL | `localhost`, `3306` |
+   | `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Base y usuario **de solo lectura**. Si `DB_NAME` o `DB_USER` están vacíos, el chat no consulta datos | vacíos |
+   | `SQL_MAX_ROWS` | Máximo de filas que recibe el modelo | `100` |
+   | `SQL_TIMEOUT_SECONDS` | Tiempo máximo por consulta | `15` |
    | `CORS_ORIGINS` | Orígenes permitidos por CORS (JSON) | `[]` (sin CORS) |
 
-   Variables previstas (nombres tentativos, aún no implementadas):
+   Variables previstas (aún no implementadas): `LLM_API_KEY`, `EMBEDDING_MODEL`, `VECTOR_STORE_PATH`.
 
-   | Variable | Descripción |
-   |---|---|
-   | `LLM_API_KEY` | API Key del modelo de lenguaje principal |
-   | `EMBEDDING_MODEL` | Modelo de embeddings en Ollama |
-   | `DB_HOST`, `DB_PORT`, `DB_NAME` | Conexión a MariaDB |
-   | `DB_USER`, `DB_PASSWORD` | Credenciales de un usuario **de solo lectura** |
-   | `VECTOR_STORE_PATH` | Ruta de persistencia del vector store |
+### Base de datos (preguntas sobre datos)
+
+El chat responde preguntas sobre los datos así:
+
+1. `SQL_MODEL` decide si la pregunta necesita datos y escribe un `SELECT`, guiado por el diccionario de datos.
+2. `app/security/sql_validator.py` valida la consulta: una sola sentencia de lectura, solo tablas del diccionario, sin funciones peligrosas, y con `LIMIT` obligatorio.
+3. La consulta se ejecuta en una sesión de solo lectura y con tiempo límite. Si falla, el modelo recibe el error y lo intenta una vez más.
+4. `LLM_MODEL` redacta la respuesta en lenguaje natural usando solo las filas obtenidas.
+
+Para configurarla:
+
+- Crea un usuario con permiso solo de lectura, por ejemplo `GRANT SELECT ON <base>.* TO 'medicalidad_ro'@'%';`, y pon sus datos en `.env`.
+- Descarga el modelo SQL: `ollama pull qwen2.5-coder:14b`. En equipos sin GPU, `qwen2.5-coder:7b` también funciona; en ese caso ajusta `SQL_MODEL`.
+- Revisa `data/documents/diccionario_datos.md`. Solo se pueden consultar las tablas que tienen una sección `## Tabla: <nombre>`. Completa las partes marcadas **POR COMPLETAR** y *(confirmar)*, porque la calidad de las respuestas depende de este archivo. Los cambios se aplican sin reiniciar la app.
+
+El SQL generado queda en el log del servidor (nivel INFO). Las filas obtenidas nunca se escriben en el log.
 
 > Nunca subas `.env` al repositorio ni uses credenciales con permisos de escritura.
 
@@ -194,7 +208,7 @@ Prueba rápida: `curl -N -X POST localhost:8000/chat/stream -H "Content-Type: ap
 
 La UI de chat se sirve en `http://localhost:8000/` desde la carpeta `src/frontend/`, sin pasos de build. Muestra el historial de la sesión (se pierde al recargar) y las respuestas se muestran en streaming.
 
-Estado actual: el servicio de chat (`app/services/chat_service.py`) responde directamente con el modelo local de Ollama, en español. Todavía no recuerda el contexto de la conversación ni usa RAG o SQL.
+Estado actual: el servicio de chat (`app/services/chat_service.py`) responde con el modelo local de Ollama, en español, usando el historial de la conversación. Cuando la pregunta lo requiere, consulta la base de datos (ver "Base de datos"). Todavía no usa RAG.
 
 Ejemplo (esquema tentativo):
 
@@ -217,11 +231,11 @@ cd src/backend
 pytest
 ```
 
-Las pruebas usan un modelo falso y no necesitan que Ollama esté corriendo.
+Las pruebas usan modelos y una base de datos falsos: no necesitan Ollama ni MariaDB.
 
 ## Estado del proyecto
 
-En fase inicial: el chat ya responde con el modelo local (Ollama) y en streaming. El resto de los módulos (intención, RAG, SQL, MariaDB) siguen como placeholders pendientes de implementación.
+En fase inicial: el chat responde con el modelo local (Ollama), en streaming, y consulta la base de datos con SQL generado y validado. RAG sigue pendiente de implementación.
 
 ## Contribución
 

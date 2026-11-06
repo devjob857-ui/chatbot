@@ -18,6 +18,10 @@ faiss-cpu==1.15.1              # Vector store persistente en data/vector_store/
 sqlalchemy==2.1.5              # Conexión de solo lectura y esquema
 pymysql==1.2.3                 # Driver MariaDB/MySQL para SQLAlchemy
 
+# Validación del SQL generado por el modelo (app/security/sql_validator.py).
+# Parser real de SQL: validar con expresiones regulares no es seguro.
+sqlglot==30.30.0
+
 # Pruebas (tests/)
 pytest==9.1.1
 httpx==0.28.1                  # Requerido por TestClient de FastAPI
